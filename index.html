@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FATMAN TFT — 자산 관리 대시보드 v3.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root {
+  --bg:#0a0c10; --surface:#111318; --surface2:#181c24; --border:#1e2530;
+  --accent:#00e5ff; --accent2:#7c3aed; --accent3:#f59e0b;
+  --green:#10b981; --red:#ef4444; --text:#e2e8f0; --muted:#64748b; --label:#94a3b8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+
+/* HEADER */
+header{border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:50;}
+.logo{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;letter-spacing:.12em;color:var(--accent);}
+.logo span{color:var(--muted);font-weight:400;font-size:11px;margin-left:10px;}
+.hdr-right{display:flex;gap:12px;align-items:center;}
+.usd-wrap{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.usd-input{background:var(--bg);border:1px solid var(--border);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:12px;padding:4px 8px;border-radius:4px;width:76px;text-align:right;}
+.usd-live{font-size:10px;color:var(--green);margin-left:2px;}
+.date-badge{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--label);font-family:'JetBrains Mono',monospace;}
+.btn-update{background:var(--accent2);color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.btn-update:hover{opacity:.85;}
+.btn-report{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:var(--green);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-report:hover{background:rgba(16,185,129,.25);}
+
+/* NAV TABS */
+.nav-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 28px;overflow-x:auto;}
+.nav-tab{font-size:12px;font-weight:600;color:var(--muted);padding:12px 18px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;letter-spacing:.04em;}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-tab:hover:not(.active){color:var(--label);}
+
+/* PAGE */
+.page{display:none;padding:24px 28px;max-width:1380px;margin:0 auto;}
+.page.active{display:block;}
+.section-title{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+
+/* GOAL BAR */
+.goal-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;}
+.goal-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;}
+.total-asset{font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:700;color:var(--accent);letter-spacing:-.02em;}
+.total-asset sub{font-size:14px;color:var(--muted);font-weight:400;margin-left:4px;}
+.goal-track{position:relative;height:9px;background:var(--surface2);border-radius:99px;margin-bottom:10px;overflow:hidden;}
+.goal-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1);}
+.milestone-markers{position:relative;height:30px;}
+.mm{position:absolute;transform:translateX(-50%);text-align:center;}
+.mm .tick{width:1px;height:7px;background:var(--border);margin:0 auto 3px;}
+.mm .ml{font-size:10px;color:var(--muted);white-space:nowrap;}
+.mm .ml.reached{color:var(--green);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.kpi-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;}
+.kpi-val{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.kpi-sub{font-size:11px;color:var(--muted);}
+.kpi-card.warn .kpi-val{color:var(--red);}
+.kpi-card.good .kpi-val{color:var(--green);}
+.kpi-card.accent .kpi-val{color:var(--accent);}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;}
+.chart-card canvas{max-height:240px;}
+.chart-title{font-size:11px;color:var(--label);margin-bottom:14px;font-weight:600;}
+
+/* MILESTONE GRID */
+.ms-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.ms-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative;overflow:hidden;}
+.ms-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.ms-card.m1::before{background:var(--accent2);}
+.ms-card.m2::before{background:var(--accent3);}
+.ms-card.m3::before{background:var(--accent);}
+.ms-year{font-size:10px;color:var(--muted);margin-bottom:5px;}
+.ms-amount{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-bottom:10px;}
+.ms-card.m1 .ms-amount{color:#a78bfa;} .ms-card.m2 .ms-amount{color:var(--accent3);} .ms-card.m3 .ms-amount{color:var(--accent);}
+.ms-prog-bg{height:5px;background:var(--surface2);border-radius:99px;margin-bottom:5px;overflow:hidden;}
+.ms-prog-fill{height:100%;border-radius:99px;}
+.m1 .ms-prog-fill{background:var(--accent2);} .m2 .ms-prog-fill{background:var(--accent3);} .m3 .ms-prog-fill{background:var(--accent);}
+.ms-pct{font-size:11px;color:var(--muted);text-align:right;}
+
+/* ALERTS */
+.alert-item{display:flex;align-items:flex-start;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.alert-item.danger{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.05);}
+.alert-item.warn{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.05);}
+.alert-item.info{border-color:rgba(0,229,255,.2);background:rgba(0,229,255,.03);}
+.alert-item.strategy{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04);}
+.alert-dot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.alert-dot.danger{background:var(--red);box-shadow:0 0 5px var(--red);}
+.alert-dot.warn{background:var(--accent3);box-shadow:0 0 5px var(--accent3);}
+.alert-dot.info{background:var(--accent);box-shadow:0 0 5px var(--accent);}
+.alert-dot.strategy{background:var(--green);box-shadow:0 0 5px var(--green);}
+.alert-text{font-size:13px;line-height:1.6;flex:1;}
+.alert-date{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;white-space:nowrap;margin-top:2px;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px;}
+.table-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 16px;overflow-x:auto;}
+.tab-btn{font-size:11px;font-weight:500;color:var(--muted);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;transition:color .2s,border-color .2s;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+table{width:100%;border-collapse:collapse;}
+th{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 14px;text-align:right;background:var(--surface2);border-bottom:1px solid var(--border);}
+th:first-child,th:nth-child(2){text-align:left;}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right;color:var(--text);}
+td:first-child,td:nth-child(2){text-align:left;font-family:'Inter',sans-serif;font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:600;}
+.badge.us{background:rgba(124,58,237,.2);color:#a78bfa;}
+.badge.kr{background:rgba(0,229,255,.1);color:var(--accent);}
+.badge.pension{background:rgba(16,185,129,.15);color:var(--green);}
+.pos{color:var(--green);} .neg{color:var(--red);}
+footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);}
+
+/* ─── TREND CHART PAGE ─── */
+.trend-controls{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+.trend-filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;padding:7px 14px;border-radius:6px;cursor:pointer;transition:all .2s;letter-spacing:.04em;}
+.trend-filter-btn.active{background:rgba(0,229,255,.1);border-color:var(--accent);color:var(--accent);}
+.trend-chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;}
+.trend-chart-wrap canvas{max-height:320px;}
+.issue-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+.issue-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.issue-card-title{font-size:11px;font-weight:700;color:var(--label);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.issue-item{display:flex;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);align-items:flex-start;}
+.issue-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.issue-type{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;margin-top:2px;flex-shrink:0;}
+.issue-type.now{background:rgba(239,68,68,.2);color:var(--red);}
+.issue-type.soon{background:rgba(245,158,11,.2);color:var(--accent3);}
+.issue-type.watch{background:rgba(0,229,255,.12);color:var(--accent);}
+.issue-desc{font-size:12px;color:var(--label);line-height:1.5;}
+.issue-desc strong{color:var(--text);}
+
+/* ─── MILESTONE CHART PAGE ─── */
+.milestone-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;}
+.milestone-chart-card canvas{max-height:340px;}
+.monthly-target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
+.mt-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.mt-month{font-size:11px;color:var(--muted);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+.mt-target{font-size:13px;font-weight:700;color:var(--accent3);font-family:'JetBrains Mono',monospace;}
+.mt-actual{font-size:12px;color:var(--green);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.mt-diff{font-size:11px;margin-top:4px;}
+.mt-bar{height:4px;background:var(--surface2);border-radius:99px;margin-top:8px;overflow:hidden;}
+.mt-bar-fill{height:100%;border-radius:99px;}
+
+/* ─── REPORTS PAGE ─── */
+.report-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;}
+.report-sidebar{display:flex;flex-direction:column;gap:8px;}
+.report-list-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .2s;}
+.report-list-item:hover{border-color:var(--accent);background:rgba(0,229,255,.03);}
+.report-list-item.active{border-color:var(--accent);background:rgba(0,229,255,.05);}
+.report-list-date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:3px;}
+.report-list-title{font-size:12px;font-weight:600;color:var(--text);line-height:1.4;}
+.report-list-tag{font-size:10px;color:var(--muted);margin-top:4px;}
+.report-viewer{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;min-height:600px;}
+.report-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:400px;color:var(--muted);}
+.report-empty-icon{font-size:40px;margin-bottom:16px;opacity:.4;}
+.rv-header{margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--border);}
+.rv-date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:5px;}
+.rv-title{font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.rv-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.rv-tag{font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(124,58,237,.2);color:#a78bfa;font-weight:600;}
+.rv-section{margin-bottom:20px;}
+.rv-section-title{font-size:12px;font-weight:700;color:var(--label);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.rv-section-title::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--accent2);}
+.rv-body{font-size:13px;color:var(--label);line-height:1.8;}
+.rv-body strong{color:var(--text);}
+.rv-body ul{padding-left:16px;margin-top:6px;}
+.rv-body li{margin-bottom:4px;}
+.rv-strategy-box{background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:14px;margin-top:8px;}
+.rv-risk-box{background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:8px;padding:14px;margin-top:8px;}
+.btn-new-report{width:100%;background:rgba(124,58,237,.15);border:1px dashed rgba(124,58,237,.4);color:#a78bfa;font-size:12px;font-weight:600;padding:11px;border-radius:8px;cursor:pointer;margin-bottom:14px;transition:all .2s;letter-spacing:.04em;}
+.btn-new-report:hover{background:rgba(124,58,237,.25);}
+.no-reports-hint{background:var(--surface2);border-radius:8px;padding:14px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+
+/* ─── MODAL ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:860px;margin:auto;}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:15px;font-weight:700;color:var(--text);}
+.modal-subtitle{font-size:11px;color:var(--muted);margin-top:3px;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px;}
+.modal-close:hover{color:var(--text);background:var(--surface2);}
+.modal-body{padding:20px 24px;}
+.modal-meta{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+.field-group{display:flex;flex-direction:column;gap:5px;}
+.field-label{font-size:11px;color:var(--label);font-weight:500;}
+.field-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:9px 12px;border-radius:7px;width:100%;outline:none;transition:border-color .2s;}
+.field-input:focus{border-color:var(--accent);}
+.field-textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 12px;border-radius:7px;width:100%;outline:none;transition:border-color .2s;resize:vertical;min-height:80px;font-family:'Inter',sans-serif;line-height:1.6;}
+.field-textarea:focus{border-color:var(--accent);}
+.holdings-table-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;}
+.holdings-header{display:grid;grid-template-columns:2fr 1.2fr 1.2fr 1fr 44px;gap:0;background:var(--surface2);padding:8px 12px;}
+.holdings-header span{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.holding-row{display:grid;grid-template-columns:24px 2fr 1.1fr 1.1fr 1.1fr 36px;gap:0;padding:8px 12px;border-top:1px solid var(--border);align-items:center;transition:background .15s;}
+.holding-row:hover{background:rgba(255,255,255,.02);}
+.holding-name{display:flex;flex-direction:column;gap:2px;}
+.holding-name .hn{font-size:13px;color:var(--text);font-weight:500;}
+.holding-name .ht{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.h-input{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 9px;border-radius:6px;width:100%;outline:none;transition:border-color .2s;}
+.h-input:focus{border-color:var(--accent);}
+.h-price-wrap{display:flex;flex-direction:column;gap:2px;}
+.h-price-status{font-size:10px;}
+.h-price-status.loading{color:var(--accent3);}
+.h-price-status.done{color:var(--green);}
+.h-price-status.err{color:var(--red);}
+.btn-fetch-all-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);}
+.btn-fetch-all{background:var(--accent2);color:#fff;border:none;border-radius:7px;padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.btn-fetch-all:hover{opacity:.85;}
+.btn-fetch-all:disabled{opacity:.4;cursor:not-allowed;}
+.fetch-status-bar{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--label);min-height:38px;display:none;}
+.fetch-status-bar.visible{display:block;}
+.acct-group-header{display:grid;grid-template-columns:24px 2fr 1.1fr 1.1fr 1.1fr 36px;padding:7px 12px;background:var(--surface2);border-top:1px solid var(--border);align-items:center;}
+.acct-group-header:first-child{border-top:none;}
+.acct-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.acct-badge.us{background:rgba(124,58,237,.25);color:#c4b5fd;}
+.acct-badge.kr{background:rgba(0,229,255,.12);color:var(--accent);}
+.acct-badge.dc{background:rgba(16,185,129,.15);color:#6ee7b7;}
+.acct-badge.irp{background:rgba(245,158,11,.15);color:#fcd34d;}
+.acct-badge.isa{background:rgba(244,63,94,.15);color:#fda4af;}
+.acct-badge.pension{background:rgba(96,165,250,.15);color:#93c5fd;}
+.acct-badge.cash{background:rgba(250,204,21,.15);color:#fde68a;}
+.price-updated{color:var(--green);font-size:11px;font-weight:700;margin-left:3px;}
+.btn-del{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:var(--red);font-size:13px;font-weight:700;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0;}
+.btn-del:hover{background:rgba(239,68,68,.25);}
+.drag-handle{display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--border);font-size:14px;padding:0 4px;flex-shrink:0;user-select:none;}
+.drag-handle:hover{color:var(--muted);}
+.holding-row.dragging{opacity:.4;}
+.holding-row.drag-over{border-top:2px solid var(--accent);}
+.holding-row.new-row{background:rgba(0,229,255,.04);border-left:2px solid var(--accent);}
+.add-stock-panel{margin-bottom:14px;}
+.btn-add-toggle{width:100%;background:rgba(0,229,255,.06);border:1px dashed rgba(0,229,255,.3);color:var(--accent);font-size:12px;font-weight:600;padding:10px;border-radius:8px;cursor:pointer;transition:background .2s;}
+.btn-add-toggle:hover{background:rgba(0,229,255,.12);}
+.add-form{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:10px;display:none;}
+.add-form.open{display:block;}
+.add-form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+.add-form-grid2{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.add-field{display:flex;flex-direction:column;gap:4px;}
+.add-label{font-size:10px;color:var(--label);font-weight:600;letter-spacing:.06em;text-transform:uppercase;}
+.add-input{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 10px;border-radius:6px;width:100%;outline:none;transition:border-color .2s;}
+.add-input:focus{border-color:var(--accent);}
+.add-select{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:7px 10px;border-radius:6px;width:100%;outline:none;cursor:pointer;}
+.add-select:focus{border-color:var(--accent);}
+.add-form-actions{display:flex;gap:8px;align-items:center;}
+.btn-add-confirm{background:var(--accent2);color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;}
+.btn-add-fetch{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.25);color:var(--accent);font-size:11px;font-weight:600;padding:8px 14px;border-radius:6px;cursor:pointer;}
+.add-status{font-size:11px;color:var(--muted);margin-left:4px;}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--label);font-size:13px;font-weight:500;padding:9px 20px;border-radius:7px;cursor:pointer;}
+.btn-cancel:hover{color:var(--text);}
+.btn-save{background:var(--accent);color:#000;border:none;font-size:13px;font-weight:700;padding:9px 24px;border-radius:7px;cursor:pointer;}
+.btn-save:hover{opacity:.85;}
+
+/* REPORT MODAL */
+.report-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.report-form-full{margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">FATMAN <span>VVIP 자산관리 TFT v3.0</span></div>
+  <div class="hdr-right">
+    <div class="usd-wrap">
+      USD/KRW <input class="usd-input" id="usdRate" type="number" value="1380" onchange="renderDashboard()"> 원
+      <span class="usd-live" id="usdLiveTag" title="실시간 환율"></span>
+    </div>
+    <!-- Drive 연결 패널 -->
+    <div id="drivePanel" style="display:flex;align-items:center;gap:8px;">
+      <input id="driveClientId" type="text" placeholder="Google OAuth Client ID"
+        style="background:var(--bg);border:1px solid var(--border);color:var(--label);font-size:10px;padding:4px 8px;border-radius:4px;width:180px;outline:none;display:none;"
+        oninput="localStorage.setItem('fatman_drive_client_id',this.value)">
+      <button id="driveConnectBtn" onclick="toggleDriveSetup()"
+        style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--green);font-size:11px;font-weight:600;padding:6px 11px;border-radius:6px;cursor:pointer;white-space:nowrap;">
+        ☁ Drive 연결
+      </button>
+      <span id="driveStatusBar" style="font-size:10px;color:var(--muted);white-space:nowrap;"></span>
+    </div>
+    <div class="date-badge" id="dateLabel">—</div>
+    <button class="btn-report" onclick="openReportModal()">✍ 레포트 작성</button>
+    <button class="btn-update" onclick="openModal()">📋 월간 업데이트</button>
+  </div>
+</header>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="switchPage('dashboard',this)">📊 대시보드</div>
+  <div class="nav-tab" onclick="switchPage('trends',this)">📈 수익 추이</div>
+  <div class="nav-tab" onclick="switchPage('milestones',this)">🎯 마일스톤</div>
+  <div class="nav-tab" onclick="switchPage('holdings',this)">📋 보유종목</div>
+  <div class="nav-tab" onclick="switchPage('reports',this)">📄 PB 레포트</div>
+</div>
+
+<!-- ══════ PAGE: DASHBOARD ══════ -->
+<div class="page active" id="page-dashboard">
+  <div class="goal-wrap">
+    <div class="goal-header">
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;">추정 총자산 (원화환산)</div>
+        <div class="total-asset" id="totalAsset">—<sub>원</sub></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">최종 목표: <strong style="color:var(--accent)">80억 원</strong> (20년 차)</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;" id="pctLabel">달성률: —</div>
+      </div>
+    </div>
+    <div class="goal-track"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+    <div class="milestone-markers" id="milestoneMarkers"></div>
+  </div>
+
+  <div class="section-title">핵심 지표</div>
+  <div class="kpi-grid">
+    <div class="kpi-card accent"><div class="kpi-label">미국주식 (USD)</div><div class="kpi-val" id="kpiUSD">—</div><div class="kpi-sub" id="kpiUSDkrw">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">국내주식</div><div class="kpi-val" id="kpiKR">—</div><div class="kpi-sub">원</div></div>
+    <div class="kpi-card good"><div class="kpi-label">DC+IRP+연금</div><div class="kpi-val" id="kpiPension">—</div><div class="kpi-sub" id="kpiPensionPct">—</div></div>
+    <div class="kpi-card warn" id="pltrCard"><div class="kpi-label">PLTR 집중도</div><div class="kpi-val" id="kpiPLTR">—</div><div class="kpi-sub">⚠ 80% 초과 시 경고</div></div>
+  </div>
+
+  <div class="section-title">포트폴리오 구성</div>
+  <div class="charts-row">
+    <div class="chart-card"><div class="chart-title">계좌별 자산 비중</div><canvas id="accountChart"></canvas></div>
+    <div class="chart-card"><div class="chart-title">자산군별 비중 추이 (월별)</div><canvas id="acctTrendChart"></canvas></div>
+  </div>
+
+  <div class="section-title">알람 & 감시자 경고</div>
+  <div id="alertsRow"></div>
+</div>
+
+<!-- ══════ PAGE: TRENDS ══════ -->
+<div class="page" id="page-trends">
+  <div class="section-title">자산군별 월별 수익 추이</div>
+  <div class="trend-controls">
+    <button class="trend-filter-btn active" onclick="setTrendFilter('all',this)">전체</button>
+    <button class="trend-filter-btn" onclick="setTrendFilter('us',this)">🇺🇸 미국주식</button>
+    <button class="trend-filter-btn" onclick="setTrendFilter('kr',this)">🇰🇷 국내주식</button>
+    <button class="trend-filter-btn" onclick="setTrendFilter('pension',this)">🏦 DC/IRP/연금</button>
+    <button class="trend-filter-btn" onclick="setTrendFilter('cash',this)">💵 현금</button>
+    <span style="font-size:11px;color:var(--muted);margin-left:8px;">* 월간 업데이트 저장 시 자동 누적</span>
+  </div>
+  <div class="trend-chart-wrap">
+    <div class="chart-title" id="trendChartTitle">전체 자산 월별 평가액 추이 (억원)</div>
+    <canvas id="trendChart" style="max-height:320px;"></canvas>
+  </div>
+
+  <div class="section-title">자산군별 주요 이슈 & 감시 포인트</div>
+  <div class="issue-grid" id="issueGrid"></div>
+</div>
+
+<!-- ══════ PAGE: MILESTONES ══════ -->
+<div class="page" id="page-milestones">
+  <div class="section-title">마일스톤 달성 현황 — 월별 목표 vs 실적</div>
+  <div class="ms-grid" id="milestoneGrid2"></div>
+
+  <div class="section-title">목표 달성 궤도 — 선형 그래프</div>
+  <div class="milestone-chart-card">
+    <div class="chart-title">현재 자산 vs 목표 달성 궤도 (억원)</div>
+    <canvas id="milestoneChart" style="max-height:340px;"></canvas>
+  </div>
+
+  <div class="section-title">최근 6개월 월별 목표 vs 달성 현황</div>
+  <div class="monthly-target-grid" id="monthlyTargetGrid"></div>
+</div>
+
+<!-- ══════ PAGE: HOLDINGS ══════ -->
+<div class="page" id="page-holdings">
+  <div class="section-title">보유 종목 상세</div>
+  <div class="table-wrap">
+    <div class="table-tabs">
+      <button class="tab-btn active" onclick="showTab('all',this)">전체</button>
+      <button class="tab-btn" onclick="showTab('미국주식',this)">미국주식</button>
+      <button class="tab-btn" onclick="showTab('국내주식',this)">국내주식</button>
+      <button class="tab-btn" onclick="showTab('DC 계좌',this)">DC</button>
+      <button class="tab-btn" onclick="showTab('IRP 계좌',this)">IRP</button>
+      <button class="tab-btn" onclick="showTab('ISA 계좌',this)">ISA</button>
+      <button class="tab-btn" onclick="showTab('연금자산 계좌',this)">연금</button>
+      <button class="tab-btn" onclick="showTab('현금',this)">💵현금</button>
+    </div>
+    <table><thead><tr><th>계좌</th><th>종목명</th><th>수량</th><th>평단가</th><th>현재가</th><th>평가금액</th><th>수익률</th></tr></thead>
+    <tbody id="holdingsBody"></tbody></table>
+  </div>
+
+  <div class="section-title">종목별 수익률 추이</div>
+  <div class="trend-controls">
+    <select id="holdingTicker" onchange="renderHoldingTrend()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;"></select>
+  </div>
+  <div class="trend-chart-wrap">
+    <div class="chart-title" id="holdingTrendTitle">종목 선택 시 수익률 추이 표시</div>
+    <canvas id="holdingTrendChart" style="max-height:280px;"></canvas>
+  </div>
+</div>
+
+<!-- ══════ PAGE: REPORTS ══════ -->
+<div class="page" id="page-reports">
+  <div class="report-layout">
+    <div>
+      <button class="btn-new-report" onclick="openReportModal()">✍ 신규 레포트 작성</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <button onclick="exportReports()" style="background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.2);color:var(--accent);font-size:11px;font-weight:600;padding:8px;border-radius:7px;cursor:pointer;">⬇ JSON 내보내기</button>
+        <button onclick="importReports()" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);color:#a78bfa;font-size:11px;font-weight:600;padding:8px;border-radius:7px;cursor:pointer;">⬆ JSON 가져오기</button>
+      </div>
+      <div id="reportSidebar">
+        <div class="no-reports-hint">저장된 레포트가 없습니다.<br>상단 버튼으로 첫 레포트를 작성해보세요.</div>
+      </div>
+    </div>
+    <div class="report-viewer" id="reportViewer">
+      <div class="report-empty">
+        <div class="report-empty-icon">📄</div>
+        <div style="font-size:14px;font-weight:600;color:var(--label);margin-bottom:6px;">레포트를 선택하세요</div>
+        <div style="font-size:12px;color:var(--muted)">좌측 목록에서 레포트를 클릭하면 내용이 표시됩니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ UPDATE MODAL ══════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+<div class="modal">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title">📋 월간 자산 업데이트</div>
+      <div class="modal-subtitle">수량과 환율만 수정 → AI가 현재 주가를 자동으로 검색합니다</div>
+    </div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-meta">
+      <div class="field-group"><label class="field-label">기준일</label><input class="field-input" type="date" id="newDate"></div>
+      <div class="field-group"><label class="field-label">USD/KRW 환율</label><input class="field-input" type="number" id="newRate" placeholder="예: 1380"></div>
+    </div>
+    <div class="btn-fetch-all-wrap">
+      <span style="font-size:12px;color:var(--muted);">티커 있는 종목 일괄 조회 · 티커 없는 종목은 수동 입력</span>
+      <button class="btn-fetch-all" id="btnFetchAll" onclick="fetchAllPrices()">⚡ 전체 주가 자동조회</button>
+    </div>
+    <div class="fetch-status-bar" id="fetchStatusBar"></div>
+    <div class="add-stock-panel">
+      <button class="btn-add-toggle" onclick="toggleAddForm()">＋ 신규 종목 추가</button>
+      <div class="add-form" id="addForm">
+        <div class="add-form-grid">
+          <div class="add-field"><span class="add-label">계좌 구분</span>
+            <select class="add-select" id="addAccount">
+              <option value="미국주식">미국주식</option><option value="국내주식">국내주식</option>
+              <option value="DC 계좌">DC 계좌</option><option value="IRP 계좌">IRP 계좌</option>
+              <option value="ISA 계좌">ISA 계좌</option><option value="현금">현금</option>
+            </select></div>
+          <div class="add-field"><span class="add-label">통화</span>
+            <select class="add-select" id="addCurrency"><option value="KRW">KRW</option><option value="USD">USD</option></select></div>
+          <div class="add-field"><span class="add-label">티커</span><input class="add-input" id="addTicker" placeholder="NVDA / 005380"></div>
+        </div>
+        <div class="add-form-grid2">
+          <div class="add-field" style="grid-column:span 2"><span class="add-label">종목명</span><input class="add-input" id="addName" placeholder="엔비디아 / 현대차"></div>
+          <div class="add-field"><span class="add-label">수량</span><input class="add-input" type="number" id="addQty" placeholder="0"></div>
+          <div class="add-field"><span class="add-label">평단가</span><input class="add-input" type="number" id="addAvg" placeholder="0"></div>
+        </div>
+        <div class="add-form-actions">
+          <button class="btn-add-fetch" onclick="fetchAndAdd()">🔍 주가 조회 후 추가</button>
+          <button class="btn-add-confirm" onclick="addStockManual()">＋ 직접 추가</button>
+          <span class="add-status" id="addStatus"></span>
+        </div>
+      </div>
+    </div>
+    <div class="holdings-table-wrap"><div id="holdingRows"></div></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-cancel" onclick="closeModal()">취소</button>
+    <button class="btn-save" onclick="saveSnapshot()">✓ 저장하고 대시보드 갱신</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════ REPORT WRITE MODAL ══════ -->
+<div class="modal-overlay" id="reportModalOverlay" onclick="handleReportOverlayClick(event)">
+<div class="modal">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title">✍ PB 주간 레포트 작성</div>
+      <div class="modal-subtitle">FATMAN TFT 주간 전략 보고서 — 저장 후 레포트 탭에서 열람</div>
+    </div>
+    <button class="modal-close" onclick="closeReportModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="report-form-grid">
+      <div class="field-group"><label class="field-label">보고서 날짜</label><input class="field-input" type="date" id="rptDate"></div>
+      <div class="field-group"><label class="field-label">제목</label><input class="field-input" type="text" id="rptTitle" placeholder="예: 2026년 6월 2주차 전략 보고"></div>
+    </div>
+    <div class="report-form-grid">
+      <div class="field-group"><label class="field-label">작성 팀원 (담당)</label><input class="field-input" type="text" id="rptAuthor" placeholder="예: 전략가 + 감시자"></div>
+      <div class="field-group"><label class="field-label">태그 (쉼표로 구분)</label><input class="field-input" type="text" id="rptTags" placeholder="예: 리밸런싱,PLTR,매크로"></div>
+    </div>
+    <div class="report-form-full">
+      <div class="field-group"><label class="field-label">📈 시황 요약 (매크로 / 코스피 / 나스닥)</label>
+        <textarea class="field-textarea" id="rptMarket" placeholder="이번 주 주요 시황, 금리 동향, 지정학 리스크 등을 입력하세요..." rows="3"></textarea></div>
+    </div>
+    <div class="report-form-full">
+      <div class="field-group"><label class="field-label">🗺 전략가: 신규 전략 및 포트폴리오 방향</label>
+        <textarea class="field-textarea" id="rptStrategy" placeholder="이번 주 수립된 투자 전략, 리밸런싱 계획, 신규 매수/매도 시나리오..." rows="4"></textarea></div>
+    </div>
+    <div class="report-form-full">
+      <div class="field-group"><label class="field-label">🔴 감시자 (Red Team): 리스크 경고 및 반론</label>
+        <textarea class="field-textarea" id="rptRisk" placeholder="전략가 제안에 대한 리스크 데이터 기반 반론, MDD 방어 포인트, 집중도 경고..." rows="3"></textarea></div>
+    </div>
+    <div class="report-form-full">
+      <div class="field-group"><label class="field-label">📋 사령관 최종 결정 사항</label>
+        <textarea class="field-textarea" id="rptDecision" placeholder="이번 주 최종 확정된 매매 결정, 홀딩 유지 이유, 다음 주 모니터링 포인트..." rows="3"></textarea></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-cancel" onclick="closeReportModal()">취소</button>
+    <button class="btn-save" onclick="saveReport()">✓ 레포트 저장</button>
+  </div>
+</div>
+</div>
+
+<footer>FATMAN TFT &nbsp;|&nbsp; 목표: 20년 차 80억 원 &nbsp;|&nbsp; 주가·환율 AI 자동조회 (참고용) · 투자 결정은 사령관 최종 판단</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS & DATA STORE
+// ═══════════════════════════════════════════════
+const GOAL = 8000000000;
+const MILESTONES = [
+  {label:'1차',year:10,amount:1000000000},
+  {label:'2차',year:15,amount:3000000000},
+  {label:'최종',year:20,amount:8000000000}
+];
+const START_YEAR = 2024; // 투자 시작 연도
+const PALETTE = ['#00e5ff','#7c3aed','#f59e0b','#10b981','#f43f5e','#3b82f6','#a78bfa','#34d399','#fbbf24','#60a5fa'];
+
+const SEED = {
+  date:"2026-03-31", usdRate:1380,
+  assets:[
+    {account:"미국주식",ticker:"PLTR",name:"팔란티어 테크",qty:581,avg:120.17,price:151.8,currency:"USD"},
+    {account:"미국주식",ticker:"RKLB",name:"로켓랩",qty:66,avg:70.0,price:73.0,currency:"USD"},
+    {account:"미국주식",ticker:"ALAB",name:"아스테라 랩스",qty:30,avg:110.0,price:116.0,currency:"USD"},
+    {account:"미국주식",ticker:"MPWR",name:"모놀리식파워시스템",qty:6,avg:1116.0,price:1094.0,currency:"USD"},
+    {account:"국내주식",ticker:"0092B0",name:"SOL 한국원자력SMR",qty:66,avg:13929,price:14600,currency:"KRW"},
+    {account:"국내주식",ticker:"042660",name:"한화오션",qty:95,avg:121103,price:115100,currency:"KRW"},
+    {account:"국내주식",ticker:"267260",name:"HD현대일렉트릭",qty:8,avg:928726,price:919000,currency:"KRW"},
+    {account:"연금자산 계좌",ticker:"360750",name:"TIGER 미국S&P500",qty:27,avg:24579,price:24815,currency:"KRW"},
+    {account:"연금자산 계좌",ticker:"453870",name:"TIGER 인도니프티50",qty:24,avg:13586,price:12920,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"360750",name:"TIGER 미국S&P500",qty:14,avg:24580,price:24815,currency:"KRW"},
+    {account:"IRP 계좌",ticker:null,name:"유리필라델피아반도체인덱스",qty:1,avg:0,price:7111002,currency:"KRW"},
+    {account:"IRP 계좌",ticker:null,name:"미래에셋나스닥100인덱스",qty:1,avg:0,price:9005139,currency:"KRW"},
+    {account:"IRP 계좌",ticker:null,name:"미래에셋배당과인컴",qty:1,avg:0,price:8565057,currency:"KRW"},
+    {account:"IRP 계좌",ticker:null,name:"미래에셋골드특별자산",qty:1,avg:0,price:3332702,currency:"KRW"},
+    {account:"ISA 계좌",ticker:"458730",name:"TIGER 미국배당다우존스",qty:347,avg:14476,price:14690,currency:"KRW"},
+    {account:"ISA 계좌",ticker:"466940",name:"TIGER 은행고배당플러스TOP10",qty:170,avg:29232,price:23810,currency:"KRW"},
+    {account:"DC 계좌",ticker:"133690",name:"TIGER 미국나스닥100",qty:175,avg:161490,price:160220,currency:"KRW"},
+    {account:"DC 계좌",ticker:"433970",name:"KODEX TDF 2030 액티브",qty:1261,avg:13790,price:13635,currency:"KRW"},
+    {account:"DC 계좌",ticker:"453870",name:"TIGER 인도니프티50",qty:900,avg:13145,price:12920,currency:"KRW"},
+    {account:"현금",ticker:null,name:"예수금·현금",qty:1,avg:0,price:36651531,currency:"KRW"}
+  ]
+};
+const SEED2 = {
+  date:"2026-05-09", usdRate:1380,
+  assets:[
+    {account:"미국주식",ticker:"PLTR",name:"팔란티어 테크",qty:563,avg:122.456,price:137.097,currency:"USD"},
+    {account:"미국주식",ticker:"RKLB",name:"로켓랩",qty:66,avg:69.77,price:106.01,currency:"USD"},
+    {account:"미국주식",ticker:"ALAB",name:"아스테라 랩스",qty:10,avg:110.0,price:190.0,currency:"USD"},
+    {account:"미국주식",ticker:"MPWR",name:"모놀리식파워시스템",qty:6,avg:1116.0,price:1605.0,currency:"USD"},
+    {account:"국내주식",ticker:"000660",name:"SK하이닉스",qty:3,avg:1066086,price:1681000,currency:"KRW"},
+    {account:"국내주식",ticker:"042660",name:"한화오션",qty:95,avg:121103,price:115100,currency:"KRW"},
+    {account:"국내주식",ticker:"267260",name:"HD현대일렉트릭",qty:8,avg:928726,price:919000,currency:"KRW"},
+    {account:"국내주식",ticker:"005930",name:"삼성전자",qty:98,avg:205048,price:276500,currency:"KRW"},
+    {account:"국내주식",ticker:"005935",name:"삼성전자 우",qty:76,avg:138328,price:182700,currency:"KRW"},
+    {account:"연금자산 계좌",ticker:"360750",name:"TIGER 미국S&P500",qty:53,avg:24837,price:26820,currency:"KRW"},
+    {account:"연금자산 계좌",ticker:"453870",name:"TIGER 인도니프티50",qty:51,avg:12920,price:12510,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"360750",name:"TIGER 미국S&P500",qty:46,avg:24998,price:26820,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"381170",name:"TIGER미국테크TOP10커버드콜",qty:58,avg:15214,price:16385,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"385520",name:"TIGER미국필라델피아반도체나스닥",qty:87,avg:35650,price:43450,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"133690",name:"TIGER 미국나스닥100",qty:66,avg:175326,price:186940,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"433970",name:"KODEX TDF 2030 액티브",qty:612,avg:14010,price:14245,currency:"KRW"},
+    {account:"IRP 계좌",ticker:"494670",name:"TIGER 미국나스닥100 H",qty:158,avg:20260,price:22415,currency:"KRW"},
+    {account:"ISA 계좌",ticker:"458730",name:"TIGER 미국배당다우존스",qty:393,avg:14501,price:14695,currency:"KRW"},
+    {account:"ISA 계좌",ticker:"466940",name:"TIGER 은행고배당플러스TOP10",qty:203,avg:28628,price:26310,currency:"KRW"},
+    {account:"DC 계좌",ticker:"133690",name:"TIGER 미국나스닥100",qty:175,avg:161490,price:186940,currency:"KRW"},
+    {account:"DC 계좌",ticker:"438080",name:"ACE 미국S&P500국채혼합50액티브",qty:1224,avg:14085,price:14520,currency:"KRW"},
+    {account:"현금",ticker:null,name:"예수금·현금",qty:1,avg:0,price:0,currency:"KRW"}
+  ]
+};
+
+function loadSnapshots(){try{return JSON.parse(localStorage.getItem('fatman_snapshots_v3')||'null');}catch(e){return null;}}
+function saveSnapshots(arr){localStorage.setItem('fatman_snapshots_v3',JSON.stringify(arr));}
+function getLatest(){const s=loadSnapshots();if(!s||!s.length)return SEED2;return s[s.length-1];}
+function getAllSnapshots(){const s=loadSnapshots();if(!s||!s.length)return [SEED, SEED2];return s;}
+// ═══════════════════════════════════════════════
+// GOOGLE DRIVE SYNC — 레포트 자동 저장
+// 파일명: FATMAN_reports.json (Drive 루트)
+// ═══════════════════════════════════════════════
+const DRIVE_FILENAME = 'FATMAN_reports.json';
+let _driveFileId = null;
+let _driveToken  = null;
+let _driveReady  = false;
+
+function showDriveStatus(type, msg) {
+  const colors = {ok:'#10b981', error:'#ef4444', loading:'#f59e0b', idle:'#64748b'};
+  const el = document.getElementById('driveStatusBar');
+  if (!el) return;
+  el.style.color = colors[type]||'#64748b';
+  el.textContent = msg;
+}
+
+async function driveRequest(method, path, params='') {
+  if (!_driveToken) return null;
+  const res = await fetch(`https://www.googleapis.com/drive/v3/${path}${params}`, {
+    method, headers: {'Authorization': `Bearer ${_driveToken}`}
+  });
+  if (res.status===401) { _driveToken=null; _driveReady=false; showDriveStatus('error','⚠️ Drive 세션 만료 — 재연결 필요'); return null; }
+  return res.ok ? res.json() : null;
+}
+
+async function findDriveFile() {
+  const data = await driveRequest('GET','files',`?q=name='${DRIVE_FILENAME}'+and+trashed=false&fields=files(id,name)&spaces=drive`);
+  if (data?.files?.length) { _driveFileId = data.files[0].id; return _driveFileId; }
+  return null;
+}
+
+async function driveUploadJSON(arr) {
+  if (!_driveToken) return false;
+  const fid = _driveFileId || await findDriveFile();
+  const blob = JSON.stringify(arr, null, 2);
+  if (!fid) {
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({name:DRIVE_FILENAME,mimeType:'application/json'})],{type:'application/json'}));
+    form.append('file', new Blob([blob],{type:'application/json'}));
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      {method:'POST',headers:{'Authorization':`Bearer ${_driveToken}`},body:form});
+    const d = res.ok ? await res.json() : null;
+    if(d?.id) _driveFileId = d.id;
+    return !!d?.id;
+  } else {
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`,
+      {method:'PATCH',headers:{'Authorization':`Bearer ${_driveToken}`,'Content-Type':'application/json'},body:blob});
+    return res.ok;
+  }
+}
+
+async function loadReportsFromDrive() {
+  if (!_driveToken) return null;
+  showDriveStatus('loading','⏳ Drive 동기화 중...');
+  const fid = _driveFileId || await findDriveFile();
+  if (!fid) { showDriveStatus('ok','📂 Drive 파일 없음 — 첫 저장 시 자동 생성'); return []; }
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`,
+    {headers:{'Authorization':`Bearer ${_driveToken}`}});
+  if (!res.ok) { showDriveStatus('error','❌ Drive 읽기 실패'); return null; }
+  const data = await res.json();
+  showDriveStatus('ok',`✅ Drive 동기화 완료 (${(data||[]).length}개 레포트)`);
+  return Array.isArray(data) ? data : [];
+}
+
+async function syncFromDrive() {
+  if (!_driveReady) return;
+  const driveData = await loadReportsFromDrive();
+  if (!driveData) return;
+  const local = loadReports();
+  const merged = [...local];
+  driveData.forEach(r=>{ if(!merged.find(x=>x.id===r.id)) merged.push(r); });
+  merged.sort((a,b)=>a.date.localeCompare(b.date));
+  localStorage.setItem('fatman_reports', JSON.stringify(merged));
+  renderReportList();
+  renderDashboard();
+}
+
+async function driveConnect() {
+  const clientId = document.getElementById('driveClientId')?.value?.trim();
+  if (!clientId) { showDriveStatus('error','⚙️ Client ID를 먼저 입력해주세요'); return; }
+  localStorage.setItem('fatman_drive_client_id', clientId);
+  showDriveStatus('loading','⏳ Google 로그인 창 열리는 중...');
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: window.location.origin + window.location.pathname,
+    response_type: 'token',
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    prompt: 'select_account'
+  });
+  window.open(`https://accounts.google.com/o/oauth2/v2/auth?${params}`,'driveOAuth','width=520,height=640');
+}
+
+// OAuth redirect 토큰 수신
+function checkOAuthRedirect() {
+  const hash = window.location.hash;
+  if (hash.includes('access_token=')) {
+    const m = hash.match(/access_token=([^&]+)/);
+    if (m) {
+      _driveToken = m[1]; _driveReady = true;
+      window.location.hash = '';
+      showDriveStatus('ok','✅ Google Drive 연결 완료!');
+      syncFromDrive();
+    }
+  }
+}
+
+function loadReports() {
+  try { return JSON.parse(localStorage.getItem('fatman_reports')||'[]'); } catch(e) { return []; }
+}
+
+async function saveReports(arr) {
+  // 로컬 우선 저장
+  localStorage.setItem('fatman_reports', JSON.stringify(arr));
+  // Drive 자동 백업
+  if (_driveReady) {
+    const ok = await driveUploadJSON(arr);
+    showDriveStatus(ok?'ok':'error', ok?`✅ Drive 자동저장 완료 — ${new Date().toLocaleTimeString('ko-KR')}`:'❌ Drive 저장 실패 (로컬 저장됨)');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function switchPage(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='trends') renderTrends();
+  if(name==='milestones') renderMilestones();
+  if(name==='holdings'){renderTable('all'); renderHoldingTickerSelect();}
+  if(name==='reports') renderReportList();
+}
+
+// ═══════════════════════════════════════════════
+// LIVE EXCHANGE RATE
+// ═══════════════════════════════════════════════
+async function fetchLiveExRate() {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:200,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:'You are a currency rate lookup assistant. Return ONLY a JSON object like {"usdkrw":1380.5} with today\'s USD/KRW exchange rate. No other text.',
+        messages:[{role:'user',content:'What is the current USD/KRW exchange rate today? Return only JSON.'}]
+      })
+    });
+    if(!res.ok) return;
+    const data = await res.json();
+    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const m = text.match(/\{[^}]+\}/);
+    if(!m) return;
+    const obj = JSON.parse(m[0]);
+    if(obj.usdkrw && obj.usdkrw > 900 && obj.usdkrw < 2000) {
+      document.getElementById('usdRate').value = Math.round(obj.usdkrw);
+      document.getElementById('usdLiveTag').textContent = '● LIVE';
+      document.getElementById('usdLiveTag').title = `실시간 환율 ${obj.usdkrw}원 (자동조회)`;
+      renderDashboard();
+    }
+  } catch(e) { /* silent fail */ }
+}
+
+// ═══════════════════════════════════════════════
+// CALC HELPERS
+// ═══════════════════════════════════════════════
+function valKRW(a, rate) {
+  if(a.currency==='USD') return (a.qty||0)*(a.price||0)*rate;
+  return (a.qty||0)*(a.price||0);
+}
+function fmt(n){return (n/1e8).toFixed(2)+'억';}
+function snapTotal(snap,rate){
+  return snap.assets.reduce((s,a)=>s+valKRW(a,rate||snap.usdRate||1380),0);
+}
+function snapByGroup(snap,rate){
+  const r=snap.usdRate||1380; const R=rate||r;
+  let us=0,kr=0,pension=0,isa=0,cash=0;
+  snap.assets.forEach(a=>{
+    const v=valKRW(a,R);
+    if(a.account==='미국주식') us+=v;
+    else if(a.account==='국내주식') kr+=v;
+    else if(['DC 계좌','IRP 계좌','연금자산 계좌'].includes(a.account)) pension+=v;
+    else if(a.account==='ISA 계좌') isa+=v;
+    else if(a.account==='현금') cash+=v;
+  });
+  return {us,kr,pension,isa,cash};
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD RENDER
+// ═══════════════════════════════════════════════
+let chartA=null,chartB=null;
+function renderDashboard() {
+  const snap=getLatest();
+  const rate=parseFloat(document.getElementById('usdRate').value)||snap.usdRate||1380;
+  document.getElementById('dateLabel').textContent='기준일: '+snap.date;
+
+  let usdUSD=0,krwStocks=0,pltrUSD=0;
+  const acctMap={};
+  snap.assets.forEach(a=>{
+    const v=valKRW(a,rate);
+    if(!acctMap[a.account]) acctMap[a.account]=0;
+    acctMap[a.account]+=v;
+    if(a.currency==='USD') usdUSD+=(a.qty||0)*(a.price||0);
+    else if(a.account==='국내주식') krwStocks+=v;
+    if(a.ticker==='PLTR') pltrUSD=(a.qty||0)*(a.price||0);
+  });
+  const usdKRW=usdUSD*rate;
+  const pensionTotal=['DC 계좌','IRP 계좌','연금자산 계좌'].reduce((s,k)=>s+(acctMap[k]||0),0);
+  const total=Object.values(acctMap).reduce((a,b)=>a+b,0);
+
+  document.getElementById('totalAsset').innerHTML=fmt(total)+'<sub>원</sub>';
+  const pct=(total/GOAL*100).toFixed(1);
+  document.getElementById('pctLabel').textContent='달성률: '+pct+'%';
+  document.getElementById('goalFill').style.width=Math.min(pct,100)+'%';
+  document.getElementById('kpiUSD').textContent='$'+usdUSD.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('kpiUSDkrw').textContent='≈ '+fmt(usdKRW);
+  document.getElementById('kpiKR').textContent=fmt(krwStocks);
+  document.getElementById('kpiPension').textContent=fmt(pensionTotal);
+  document.getElementById('kpiPensionPct').textContent='총자산 대비 '+(pensionTotal/total*100).toFixed(1)+'%';
+  const pltrPct=usdUSD>0?(pltrUSD/usdUSD*100).toFixed(1):0;
+  document.getElementById('kpiPLTR').textContent=pltrPct+'%';
+  document.getElementById('pltrCard').className='kpi-card '+(pltrPct>80?'warn':'good');
+
+  document.getElementById('milestoneMarkers').innerHTML=MILESTONES.map(m=>{
+    const x=(m.amount/GOAL*100).toFixed(1);
+    return `<div class="mm" style="left:${x}%"><div class="tick"></div><div class="ml ${total>=m.amount?'reached':''}">${m.label}<br>${m.amount/1e8}억</div></div>`;
+  }).join('');
+
+  // Alerts
+  const reports=loadReports();
+  const latestReport=reports.length?reports[reports.length-1]:null;
+  const alerts=[];
+  if(pltrPct>80) alerts.push({l:'danger',m:`<strong>PLTR 집중도 ${pltrPct}%</strong> — 미국주식 내 단일 종목 80% 초과. 분산 매도 시나리오 검토 요망.`});
+  else if(pltrPct>70) alerts.push({l:'warn',m:`<strong>PLTR 집중도 ${pltrPct}%</strong> — 70% 초과 감시 구간.`});
+  const dcNas=snap.assets.find(a=>a.account==='DC 계좌'&&(a.name||'').includes('나스닥100'));
+  if(dcNas&&acctMap['DC 계좌']){
+    const dp=(valKRW(dcNas,rate)/acctMap['DC 계좌']*100).toFixed(1);
+    if(dp>50) alerts.push({l:'warn',m:`<strong>DC 나스닥100 ${dp}%</strong> — DC 계좌 단일 ETF 비중 과도. 리밸런싱 검토.`});
+  }
+  if(latestReport&&latestReport.strategy){
+    alerts.push({l:'strategy',m:`<strong>📋 최신 전략 [${latestReport.date}]:</strong> ${latestReport.strategy.substring(0,120)}${latestReport.strategy.length>120?'…':''} <a href="#" onclick="switchPage('reports',document.querySelector('.nav-tab:last-child'));return false;" style="color:var(--accent);font-size:11px;margin-left:6px;">전체 보기 →</a>`});
+  }
+  if(latestReport&&latestReport.risk){
+    alerts.push({l:'warn',m:`<strong>🔴 감시자 경고 [${latestReport.date}]:</strong> ${latestReport.risk.substring(0,120)}${latestReport.risk.length>120?'…':''}`});
+  }
+  alerts.push({l:'info',m:`<strong>연금 세액공제</strong> — IRP+DC 연 900만 원 한도 활용 여부 점검.`});
+  alerts.push({l:'info',m:`<strong>현재 환율 ${rate.toLocaleString()}원</strong> 적용 중. 상단에서 조정 가능.`});
+  document.getElementById('alertsRow').innerHTML=alerts.map(a=>
+    `<div class="alert-item ${a.l}"><div class="alert-dot ${a.l}"></div><div class="alert-text">${a.m}</div></div>`
+  ).join('');
+
+  // Charts
+  const acctLabels=Object.keys(acctMap);
+  const acctVals=acctLabels.map(k=>parseFloat((acctMap[k]/1e8).toFixed(2)));
+  if(chartA) chartA.destroy();
+  chartA=new Chart(document.getElementById('accountChart'),{
+    type:'doughnut',
+    data:{labels:acctLabels,datasets:[{data:acctVals,backgroundColor:PALETTE,borderWidth:0,hoverOffset:5}]},
+    options:{plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},boxWidth:9,padding:8}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toFixed(2)}억`}}},cutout:'60%'}
+  });
+
+  // Trend mini chart on dashboard
+  const allSnaps=getAllSnapshots();
+  const trendLabels=allSnaps.map(s=>s.date.substring(0,7));
+  const groupColors={'us':'#7c3aed','kr':'#00e5ff','pension':'#10b981','isa':'#f59e0b','cash':'#64748b'};
+  const groupNames={'us':'미국주식','kr':'국내주식','pension':'DC/IRP/연금','isa':'ISA','cash':'현금'};
+  const datasets=Object.keys(groupColors).map(g=>({
+    label:groupNames[g],
+    data:allSnaps.map(s=>{const grp=snapByGroup(s);return +(grp[g]/1e8).toFixed(2);}),
+    borderColor:groupColors[g],backgroundColor:groupColors[g]+'22',
+    fill:false,tension:.4,pointRadius:3,borderWidth:2
+  }));
+  if(chartB) chartB.destroy();
+  chartB=new Chart(document.getElementById('acctTrendChart'),{
+    type:'line',
+    data:{labels:trendLabels,datasets},
+    options:{plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:10},boxWidth:8,padding:6}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2530'}},
+              y:{ticks:{color:'#64748b',font:{size:10},callback:v=>v+'억'},grid:{color:'#1e2530'}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════
+// TRENDS PAGE
+// ═══════════════════════════════════════════════
+let trendFilter='all', trendChart=null;
+const ISSUES = {
+  us:[
+    {type:'now',desc:'<strong>PLTR 집중도</strong> 미국주식 내 비중 70~85% — 단일 종목 과집중으로 변동성 극대화 위험'},
+    {type:'soon',desc:'<strong>ALAB/RKLB 실적 발표</strong> 분기별 어닝 시즌마다 ±20% 급등락 예상 — 사전 비중 조절 검토'},
+    {type:'watch',desc:'<strong>Fed 금리 결정</strong> 금리 인하 시 성장주(PLTR, RKLB) 재평가 기회, 인상 시 밸류에이션 압박'},
+    {type:'watch',desc:'<strong>AI 거버넌스 법규</strong> 팔란티어 주요 매출원인 정부·방산 계약에 지정학 리스크 내재'},
+  ],
+  kr:[
+    {type:'now',desc:'<strong>한화오션 수주 동향</strong> LNG선·방산 수주 모멘텀이 주가 핵심 드라이버 — 격주 체크 필요'},
+    {type:'soon',desc:'<strong>HD현대일렉트릭 전력기기</strong> 미국 전력망 투자 사이클에 연동 — 2026H2 강세 기대 구간'},
+    {type:'watch',desc:'<strong>삼성전자 HBM 공급</strong> AI가속기 수요와 직결 — 엔비디아·AMD 실적 선행지표로 모니터링'},
+    {type:'watch',desc:'<strong>원/달러 환율 1400원 저항</strong> 원화 약세 지속 시 해외주식 환산 평가액 상승 / 수입물가 부담'},
+  ],
+  pension:[
+    {type:'soon',desc:'<strong>연금저축·IRP 연말 한도</strong> DC+IRP 합산 연 900만원 세액공제 한도 12월 전 집행 필수'},
+    {type:'watch',desc:'<strong>나스닥100 H(환헤지)</strong> 헤지 비용 연 2~3% 추가 부담 — 환율 방향성에 따라 헤지 비율 재검토'},
+    {type:'watch',desc:'<strong>TDF 2030 글라이드패스</strong> 만기 접근 시 자동 채권 비중 증가 — 수익률 방어 vs 기회비용 점검'},
+    {type:'now',desc:'<strong>DC 나스닥100 집중도</strong> DC 계좌 내 단일 ETF 50%↑ — 분기 1회 ACE/KODEX 분산 리밸런싱 권고'},
+  ],
+  cash:[
+    {type:'watch',desc:'<strong>예수금 운용 기회비용</strong> 파킹통장 연 3.5~4% 활용 여부 점검 — CMA, TIGER 단기채 ETF 대안'},
+    {type:'soon',desc:'<strong>신규 매수 여력 확보</strong> 시장 급락(-10%) 시 드롭바이 매수 위한 최소 5% 현금 버퍼 유지 권고'},
+    {type:'watch',desc:'<strong>ISA 비과세 한도</strong> 연간 2,000만원 납입 한도 및 만기 시 분리과세 혜택 스케줄 관리 필요'},
+  ]
+};
+
+function setTrendFilter(f, btn) {
+  trendFilter=f;
+  document.querySelectorAll('.trend-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrends();
+}
+
+function renderTrends() {
+  const allSnaps=getAllSnapshots();
+  const rate=parseFloat(document.getElementById('usdRate').value)||1380;
+  const labels=allSnaps.map(s=>s.date.substring(0,7));
+  const groupColors={'us':'#7c3aed','kr':'#00e5ff','pension':'#10b981','isa':'#f59e0b','cash':'#94a3b8'};
+  const groupNames={'us':'미국주식','kr':'국내주식','pension':'DC/IRP/연금','isa':'ISA','cash':'현금'};
+
+  let datasets=[], title='전체 자산 월별 평가액 추이 (억원)';
+  if(trendFilter==='all'){
+    datasets=Object.keys(groupColors).map(g=>({
+      label:groupNames[g],
+      data:allSnaps.map(s=>{const grp=snapByGroup(s,rate);return +(grp[g]/1e8).toFixed(2);}),
+      borderColor:groupColors[g],backgroundColor:groupColors[g]+'22',fill:true,tension:.4,pointRadius:4,borderWidth:2
+    }));
+    // also add total line
+    datasets.push({
+      label:'총자산',
+      data:allSnaps.map(s=>+(snapTotal(s,rate)/1e8).toFixed(2)),
+      borderColor:'#fff',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:4,borderWidth:2.5,borderDash:[4,3]
+    });
+    title='전체 자산 월별 평가액 추이 (억원)';
+  } else {
+    const g=trendFilter;
+    datasets=[{
+      label:groupNames[g],
+      data:allSnaps.map(s=>{const grp=snapByGroup(s,rate);return +(grp[g]/1e8).toFixed(2);}),
+      borderColor:groupColors[g],backgroundColor:groupColors[g]+'33',fill:true,tension:.4,pointRadius:5,borderWidth:2.5
+    }];
+    title=groupNames[g]+' 월별 평가액 추이 (억원)';
+  }
+
+  document.getElementById('trendChartTitle').textContent=title;
+  if(window._trendChart) window._trendChart.destroy();
+  window._trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line', data:{labels,datasets},
+    options:{plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:11},boxWidth:8,padding:8}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2530'}},
+              y:{ticks:{color:'#64748b',font:{size:11},callback:v=>v+'억'},grid:{color:'#1e2530'}}}}
+  });
+
+  // Issue grid
+  const groups=trendFilter==='all'?['us','kr','pension','cash']:[trendFilter];
+  const groupTitles={'us':'🇺🇸 미국주식','kr':'🇰🇷 국내주식','pension':'🏦 DC/IRP/연금','cash':'💵 현금/ISA'};
+  document.getElementById('issueGrid').innerHTML=groups.map(g=>`
+    <div class="issue-card">
+      <div class="issue-card-title">${groupTitles[g]||g} 이슈</div>
+      ${(ISSUES[g]||[]).map(i=>`
+        <div class="issue-item">
+          <span class="issue-type ${i.type}">${i.type==='now'?'당면':i.type==='soon'?'예정':'감시'}</span>
+          <div class="issue-desc">${i.desc}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// MILESTONES PAGE
+// ═══════════════════════════════════════════════
+function renderMilestones() {
+  const rate=parseFloat(document.getElementById('usdRate').value)||1380;
+  const allSnaps=getAllSnapshots();
+  const total=snapTotal(getLatest(),rate);
+  const now=new Date();
+  const startYear=START_YEAR;
+  const elapsed=(now.getFullYear()-startYear)+(now.getMonth()/12);
+
+  // Milestone cards
+  document.getElementById('milestoneGrid2').innerHTML=MILESTONES.map((m,i)=>{
+    const p=Math.min(total/m.amount*100,100);
+    const yearsLeft=m.year-elapsed;
+    const needed=Math.max(m.amount-total,0);
+    return `<div class="ms-card m${i+1}">
+      <div class="ms-year">${m.year}년 차 · ${m.label} 목표 · 잔여 ${yearsLeft.toFixed(1)}년</div>
+      <div class="ms-amount">${m.amount/1e8}억 원</div>
+      <div class="ms-prog-bg"><div class="ms-prog-fill" style="width:${p.toFixed(1)}%"></div></div>
+      <div class="ms-pct">${p.toFixed(1)}% 달성 · 잔여 ${fmt(needed)}</div>
+    </div>`;
+  }).join('');
+
+  // Milestone trajectory chart
+  // Build goal lines for each milestone
+  const chartLabels=[];
+  for(let y=startYear;y<=startYear+21;y++) chartLabels.push(y+'년');
+
+  // Annual required growth rate to reach goals (approx.)
+  const annualGrowthRate14=0.14;
+  const projData=[];
+  const seedTotal=snapTotal(SEED,1380);
+  let proj=seedTotal;
+  for(let y=0;y<=20;y++){
+    projData.push(+(proj/1e8).toFixed(2));
+    proj*=(1+annualGrowthRate14);
+  }
+
+  // Actual snapshots mapped to year index
+  const actualPoints=new Array(21).fill(null);
+  allSnaps.forEach(s=>{
+    const yr=new Date(s.date).getFullYear()-startYear;
+    if(yr>=0&&yr<=20) actualPoints[yr]=+(snapTotal(s,rate)/1e8).toFixed(2);
+  });
+
+  const ms1Line=new Array(21).fill(null); ms1Line[10]=10;
+  const ms2Line=new Array(21).fill(null); ms2Line[15]=30;
+  const ms3Line=new Array(21).fill(null); ms3Line[20]=80;
+
+  if(window._msChart) window._msChart.destroy();
+  window._msChart=new Chart(document.getElementById('milestoneChart'),{
+    type:'line',
+    data:{
+      labels:chartLabels,
+      datasets:[
+        {label:'연 14% 성장 시나리오',data:projData,borderColor:'#7c3aed',backgroundColor:'#7c3aed22',fill:true,tension:.4,borderWidth:2,pointRadius:2},
+        {label:'실제 자산',data:actualPoints,borderColor:'#00e5ff',backgroundColor:'transparent',fill:false,tension:.3,borderWidth:2.5,pointRadius:5,spanGaps:true},
+        {label:'1차 목표 (10억)',data:new Array(21).fill(10),borderColor:'#a78bfa',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+        {label:'2차 목표 (30억)',data:new Array(21).fill(30),borderColor:'#f59e0b',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+        {label:'최종 목표 (80억)',data:new Array(21).fill(80),borderColor:'#10b981',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+      ]
+    },
+    options:{plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:10},boxWidth:8,padding:6}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:10},maxRotation:45},grid:{color:'#1e2530'}},
+              y:{ticks:{color:'#64748b',font:{size:10},callback:v=>v+'억'},grid:{color:'#1e2530'}}}}
+  });
+
+  // Monthly target cards (last 6 months)
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({label:d.getFullYear()+'년 '+(d.getMonth()+1)+'월', key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')});
+  }
+  const monthlyTarget14=seedTotal*(Math.pow(1+annualGrowthRate14,1/12)-1);
+  document.getElementById('monthlyTargetGrid').innerHTML=months.map(m=>{
+    const snap=allSnaps.find(s=>s.date.startsWith(m.key));
+    const actual=snap?snapTotal(snap,rate):null;
+    // Estimate target based on seed + months elapsed
+    const mIdx=allSnaps.findIndex(s=>s.date.startsWith(m.key));
+    const targetVal=seedTotal*(Math.pow(1+annualGrowthRate14,(new Date(m.key+'-01')-new Date(SEED.date))/(365.25*24*3600*1000)));
+    const diff=actual?actual-targetVal:null;
+    const pct=actual?(actual/targetVal*100).toFixed(1):null;
+    return `<div class="mt-card">
+      <div class="mt-month">${m.label}</div>
+      <div class="mt-target">목표: ${(targetVal/1e8).toFixed(2)}억</div>
+      ${actual?`<div class="mt-actual">실적: ${(actual/1e8).toFixed(2)}억</div>
+      <div class="mt-diff" style="color:${diff>=0?'var(--green)':'var(--red)'}">
+        ${diff>=0?'+':''}${(diff/1e8).toFixed(2)}억 (${pct}%)
+      </div>
+      <div class="mt-bar"><div class="mt-bar-fill" style="width:${Math.min(pct,120)}%;background:${diff>=0?'var(--green)':'var(--red)'};"></div></div>`
+      :`<div style="font-size:11px;color:var(--muted);margin-top:8px;">데이터 없음</div>`}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// HOLDINGS TABLE
+// ═══════════════════════════════════════════════
+function renderTable(tab) {
+  const snap=getLatest();
+  const rate=parseFloat(document.getElementById('usdRate').value)||snap.usdRate||1380;
+  const assets=tab==='all'?snap.assets:snap.assets.filter(a=>a.account===tab);
+  const bc={미국주식:'us',국내주식:'kr','DC 계좌':'pension','IRP 계좌':'pension','연금자산 계좌':'pension','ISA 계좌':'kr','현금':'kr'};
+  document.getElementById('holdingsBody').innerHTML=assets.map(a=>{
+    const v=valKRW(a,rate);
+    const avg=a.currency==='USD'?'$'+(a.avg||0).toLocaleString(undefined,{maximumFractionDigits:2}):(a.avg||0).toLocaleString()+'원';
+    const price=a.currency==='USD'?'$'+(a.price||0).toLocaleString(undefined,{maximumFractionDigits:2}):(a.price||0).toLocaleString()+'원';
+    const pct=a.avg>0?((a.price-a.avg)/a.avg*100).toFixed(1):null;
+    const pctHtml=pct!==null?`<span class="${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct}%</span>`:'—';
+    return `<tr><td><span class="badge ${bc[a.account]||'kr'}">${a.account}</span></td>
+    <td>${a.name}${a.ticker?` <span style="color:var(--muted);font-size:10px;">${a.ticker}</span>`:''}</td>
+    <td>${a.qty!=null?a.qty.toLocaleString():'—'}</td><td>${avg}</td><td>${price}</td>
+    <td>${Math.round(v/1e4).toLocaleString()}만원</td><td>${pctHtml}</td></tr>`;
+  }).join('');
+}
+
+function showTab(tab,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(tab);
+}
+
+// Holding individual trend chart
+function renderHoldingTickerSelect(){
+  const snap=getLatest();
+  const sel=document.getElementById('holdingTicker');
+  sel.innerHTML=snap.assets.filter(a=>a.ticker).map(a=>`<option value="${a.ticker}">${a.name} (${a.ticker})</option>`).join('');
+  renderHoldingTrend();
+}
+
+function renderHoldingTrend(){
+  const ticker=document.getElementById('holdingTicker').value;
+  const allSnaps=getAllSnapshots();
+  const rate=parseFloat(document.getElementById('usdRate').value)||1380;
+  const labels=[],prices=[],values=[],returnPcts=[];
+  allSnaps.forEach(s=>{
+    const a=s.assets.find(x=>x.ticker===ticker);
+    if(a){
+      labels.push(s.date.substring(0,7));
+      prices.push(a.price||0);
+      values.push(+(valKRW(a,rate)/1e6).toFixed(1));
+      returnPcts.push(a.avg>0?+((a.price-a.avg)/a.avg*100).toFixed(2):0);
+    }
+  });
+  const name=allSnaps[allSnaps.length-1].assets.find(a=>a.ticker===ticker)?.name||ticker;
+  document.getElementById('holdingTrendTitle').textContent=`${name} (${ticker}) — 월별 수익률 추이`;
+  if(window._holdingChart) window._holdingChart.destroy();
+  window._holdingChart=new Chart(document.getElementById('holdingTrendChart'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'수익률 (%)',data:returnPcts,borderColor:returnPcts[returnPcts.length-1]>=0?'#10b981':'#ef4444',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:4,borderWidth:2,yAxisID:'y'},
+        {label:'평가액 (백만원)',data:values,borderColor:'#7c3aed',backgroundColor:'#7c3aed22',fill:true,tension:.4,pointRadius:3,borderWidth:1.5,yAxisID:'y1'},
+      ]
+    },
+    options:{plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:11},boxWidth:8}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2530'}},
+        y:{ticks:{color:'#64748b',font:{size:10},callback:v=>v+'%'},grid:{color:'#1e2530'},position:'left'},
+        y1:{ticks:{color:'#64748b',font:{size:10},callback:v=>v+'M'},grid:{display:false},position:'right'}
+      }}
+  });
+}
+
+// ═══════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════
+function openReportModal(){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('rptDate').value=today;
+  document.getElementById('rptTitle').value='';
+  document.getElementById('rptAuthor').value='전략가 + 감시자';
+  document.getElementById('rptTags').value='';
+  document.getElementById('rptMarket').value='';
+  document.getElementById('rptStrategy').value='';
+  document.getElementById('rptRisk').value='';
+  document.getElementById('rptDecision').value='';
+  document.getElementById('reportModalOverlay').classList.add('open');
+}
+function closeReportModal(){document.getElementById('reportModalOverlay').classList.remove('open');}
+function handleReportOverlayClick(e){if(e.target===document.getElementById('reportModalOverlay'))closeReportModal();}
+
+async function saveReport(){
+  const date=document.getElementById('rptDate').value;
+  const title=document.getElementById('rptTitle').value.trim();
+  if(!date||!title){alert('날짜와 제목을 입력해주세요.');return;}
+  const report={
+    id:Date.now(),date,title,
+    author:document.getElementById('rptAuthor').value.trim(),
+    tags:document.getElementById('rptTags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    market:document.getElementById('rptMarket').value.trim(),
+    strategy:document.getElementById('rptStrategy').value.trim(),
+    risk:document.getElementById('rptRisk').value.trim(),
+    decision:document.getElementById('rptDecision').value.trim()
+  };
+  const reports=loadReports();
+  reports.push(report);
+  reports.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveReports(reports);  // Drive 자동 저장 포함
+  closeReportModal();
+  renderDashboard();
+  const reportsTab=document.querySelectorAll('.nav-tab')[4];
+  switchPage('reports',reportsTab);
+  setTimeout(()=>viewReport(report.id),100);
+}
+
+function renderReportList(){
+  const reports=loadReports();
+  const sidebar=document.getElementById('reportSidebar');
+  if(!reports.length){
+    sidebar.innerHTML='<div class="no-reports-hint">저장된 레포트가 없습니다.<br>상단 버튼으로 첫 레포트를 작성해보세요.</div>';
+    return;
+  }
+  sidebar.innerHTML=[...reports].reverse().map(r=>`
+    <div class="report-list-item" id="rli-${r.id}" onclick="viewReport(${r.id})">
+      <div class="report-list-date">${r.date}</div>
+      <div class="report-list-title">${r.title}</div>
+      <div class="report-list-tag">${r.author||''}${r.tags&&r.tags.length?' · '+r.tags.slice(0,3).join(', '):''}</div>
+    </div>`).join('');
+}
+
+function viewReport(id){
+  const reports=loadReports();
+  const r=reports.find(x=>x.id===id);
+  if(!r)return;
+  document.querySelectorAll('.report-list-item').forEach(el=>el.classList.remove('active'));
+  const el=document.getElementById('rli-'+id);
+  if(el) el.classList.add('active');
+
+  document.getElementById('reportViewer').innerHTML=`
+    <div class="rv-header">
+      <div class="rv-date">${r.date} &nbsp;|&nbsp; ${r.author||'FATMAN TFT'}</div>
+      <div class="rv-title">${r.title}</div>
+      <div class="rv-tags">${(r.tags||[]).map(t=>`<span class="rv-tag">${t}</span>`).join('')}</div>
+    </div>
+    ${r.market?`<div class="rv-section">
+      <div class="rv-section-title">📈 시황 요약</div>
+      <div class="rv-body">${r.market.replace(/\n/g,'<br>')}</div>
+    </div>`:''}
+    ${r.strategy?`<div class="rv-section">
+      <div class="rv-section-title">🗺 신규 전략</div>
+      <div class="rv-strategy-box rv-body">${r.strategy.replace(/\n/g,'<br>')}</div>
+    </div>`:''}
+    ${r.risk?`<div class="rv-section">
+      <div class="rv-section-title">🔴 감시자 경고</div>
+      <div class="rv-risk-box rv-body">${r.risk.replace(/\n/g,'<br>')}</div>
+    </div>`:''}
+    ${r.decision?`<div class="rv-section">
+      <div class="rv-section-title">✅ 사령관 결정</div>
+      <div class="rv-body">${r.decision.replace(/\n/g,'<br>')}</div>
+    </div>`:''}
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+      <button onclick="deleteReport(${r.id})" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:var(--red);font-size:12px;padding:7px 14px;border-radius:6px;cursor:pointer;">레포트 삭제</button>
+    </div>`;
+}
+
+function deleteReport(id){
+  if(!confirm('이 레포트를 삭제하시겠습니까?'))return;
+  const reports=loadReports().filter(r=>r.id!==id);
+  saveReports(reports);
+  renderReportList();
+  document.getElementById('reportViewer').innerHTML='<div class="report-empty"><div class="report-empty-icon">📄</div><div style="font-size:14px;font-weight:600;color:var(--label);">레포트를 선택하세요</div></div>';
+}
+
+// ═══════════════════════════════════════════════
+// UPDATE MODAL
+// ═══════════════════════════════════════════════
+let modalAssets=[];
+
+function openModal(){
+  const snap=getLatest();
+  modalAssets=snap.assets.map(a=>({...a}));
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('newDate').value=today;
+  document.getElementById('newRate').value=snap.usdRate||1380;
+  renderModalRows();
+  document.getElementById('fetchStatusBar').classList.remove('visible');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+function handleOverlayClick(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+function toggleAddForm(){const f=document.getElementById('addForm');f.classList.toggle('open');}
+
+function deleteAsset(i){modalAssets.splice(i,1);renderModalRows();}
+
+function renderModalRows(){
+  const container=document.getElementById('holdingRows');
+  const ACCT_ORDER=['미국주식','국내주식','DC 계좌','IRP 계좌','ISA 계좌','연금자산 계좌','현금'];
+  const ACCT_BADGE={미국주식:'us',국내주식:'kr','DC 계좌':'dc','IRP 계좌':'irp','ISA 계좌':'isa','연금자산 계좌':'pension','현금':'cash'};
+  const ACCT_LABEL={미국주식:'🇺🇸 미국주식',국내주식:'🇰🇷 국내주식','DC 계좌':'🏦 DC 계좌','IRP 계좌':'🔐 IRP 계좌','ISA 계좌':'💼 ISA 계좌','연금자산 계좌':'🌱 연금자산','현금':'💵 현금'};
+  const groups={};
+  modalAssets.forEach((a,i)=>{if(!groups[a.account])groups[a.account]=[];groups[a.account].push({a,i});});
+  const orderedAccts=[...ACCT_ORDER.filter(k=>groups[k]),...Object.keys(groups).filter(k=>!ACCT_ORDER.includes(k))];
+  let html='';
+  orderedAccts.forEach(acct=>{
+    const items=groups[acct];
+    const badge=ACCT_BADGE[acct]||'kr';
+    html+=`<div class="acct-group-header">
+      <span></span>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span class="acct-badge ${badge}">${ACCT_LABEL[acct]||acct}</span>
+        <span style="font-size:10px;color:var(--muted);">${items.length}종목</span>
+      </div>
+      <span style="font-size:10px;color:var(--muted);text-align:right;">수량</span>
+      <span style="font-size:10px;color:var(--muted);text-align:right;">평단가</span>
+      <span style="font-size:10px;color:var(--muted);text-align:right;">현재가</span>
+      <span></span>
+    </div>`;
+    items.forEach(({a,i})=>{
+      const isUSD=a.currency==='USD';
+      const isCash=a.account==='현금';
+      const priceUpdated=!!a.priceUpdated;
+      const isNew=!!a.isNew;
+      html+=`<div class="holding-row${isNew?' new-row':''}" id="hrow-${i}" draggable="true" data-idx="${i}"
+          ondragstart="onDragStart(event,${i})" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})">
+        <div class="drag-handle">⠿</div>
+        <div class="holding-name">
+          <span class="hn">${a.name}${isNew?' <span style="font-size:9px;background:rgba(0,229,255,.15);color:var(--accent);padding:1px 5px;border-radius:3px;">NEW</span>':''}</span>
+          <span class="ht">${isCash?'직접 금액 입력':(a.ticker||'티커없음·수동입력')} · ${isUSD?'USD':'KRW'}</span>
+        </div>
+        ${isCash?`<div style="grid-column:span 3;"><input class="h-input" type="number" id="price-${i}" value="${a.price??0}" style="width:100%;" oninput="modalAssets[${i}].price=parseFloat(this.value)||0;modalAssets[${i}].qty=1;"></div><span></span><span></span>`:`
+        <div><input class="h-input" type="number" id="qty-${i}" value="${a.qty??''}" placeholder="수량" oninput="modalAssets[${i}].qty=parseFloat(this.value)||0"></div>
+        <div><input class="h-input" type="number" id="avg-${i}" value="${a.avg??''}" placeholder="${isUSD?'$':'₩'}" oninput="modalAssets[${i}].avg=parseFloat(this.value)||0"></div>
+        <div class="h-price-wrap">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <input class="h-input" type="number" id="price-${i}" value="${a.price??''}" placeholder="${isUSD?'$':'₩'}" oninput="modalAssets[${i}].price=parseFloat(this.value)||0;modalAssets[${i}].priceUpdated=false;document.getElementById('pcheck-${i}').textContent=''">
+            <span id="pcheck-${i}" class="price-updated">${priceUpdated?'✓':''}</span>
+          </div>
+          <span class="h-price-status" id="pstatus-${i}"></span>
+        </div>`}
+        <div style="display:flex;align-items:center;"><button class="btn-del" onclick="deleteAsset(${i})">✕</button></div>
+      </div>`;
+    });
+  });
+  container.innerHTML=html;
+}
+
+let dragSrcIdx=null;
+function onDragStart(e,i){dragSrcIdx=i;e.dataTransfer.effectAllowed='move';setTimeout(()=>document.getElementById(`hrow-${i}`)?.classList.add('dragging'),0);}
+function onDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';document.querySelectorAll('.holding-row').forEach(r=>r.classList.remove('drag-over'));e.currentTarget.classList.add('drag-over');}
+function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onDrop(e,targetIdx){
+  e.preventDefault();document.querySelectorAll('.holding-row').forEach(r=>{r.classList.remove('drag-over');r.classList.remove('dragging');});
+  if(dragSrcIdx===null||dragSrcIdx===targetIdx)return;
+  const moved=modalAssets.splice(dragSrcIdx,1)[0];
+  const insertAt=dragSrcIdx<targetIdx?targetIdx-1:targetIdx;
+  modalAssets.splice(insertAt,0,moved);
+  dragSrcIdx=null;renderModalRows();
+}
+
+async function fetchAllPrices(){
+  const btn=document.getElementById('btnFetchAll');
+  const bar=document.getElementById('fetchStatusBar');
+  btn.disabled=true; bar.classList.add('visible');
+  const targets=modalAssets.map((a,i)=>({a,i})).filter(({a})=>a.ticker&&a.account!=='현금');
+  if(!targets.length){bar.innerHTML='조회할 티커가 없습니다.';btn.disabled=false;return;}
+  bar.innerHTML=`⚡ ${targets.length}개 종목 주가 조회 중... (10~20초 소요)`;
+  try {
+    const tickerList=targets.map(({a})=>`${a.ticker} (${a.name}, ${a.currency})`).join('\n');
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:`You are a stock price lookup assistant. Search for current market prices.
+Respond ONLY with a single valid JSON array, no markdown:
+[{"ticker":"PLTR","price":135.2},{"ticker":"005930","price":71400},...]
+- USD stocks: price in USD (number)
+- KRW stocks (6-digit codes): price in KRW (number)
+- If not found, use null`,
+        messages:[{role:'user',content:`Find current prices for:\n${tickerList}`}]
+      })
+    });
+    if(!res.ok) throw new Error(`API ${res.status}`);
+    const data=await res.json();
+    const textBlock=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch=textBlock.match(/\[[\s\S]*\]/);
+    if(!jsonMatch) throw new Error('JSON 파싱 실패');
+    const prices=JSON.parse(jsonMatch[0]);
+    const priceMap={};
+    prices.forEach(p=>{if(p.ticker&&p.price)priceMap[p.ticker]=p.price;});
+    let ok=0,fail=0;
+    const today=new Date().toLocaleDateString('ko-KR');
+    targets.forEach(({a,i})=>{
+      const price=priceMap[a.ticker];
+      const input=document.getElementById(`price-${i}`);
+      const pcheck=document.getElementById(`pcheck-${i}`);
+      const status=document.getElementById(`pstatus-${i}`);
+      if(price){modalAssets[i].price=price;modalAssets[i].priceUpdated=true;if(input)input.value=price;if(pcheck)pcheck.textContent='✓';if(status){status.className='h-price-status done';status.textContent=today;}ok++;}
+      else{modalAssets[i].priceUpdated=false;if(pcheck)pcheck.textContent='';if(status){status.className='h-price-status err';status.textContent='✗ 미조회';}fail++;}
+    });
+    bar.innerHTML=`✅ 완료 — 성공 ${ok}개 / 실패 ${fail}개${fail>0?' · 실패 종목은 직접 입력해주세요':''}`;
+  } catch(e) {
+    bar.innerHTML=`❌ 오류: ${e.message} · 현재가를 직접 입력해주세요`;
+  }
+  btn.disabled=false;
+}
+
+async function fetchAndAdd(){
+  const ticker=document.getElementById('addTicker').value.trim();
+  const name=document.getElementById('addName').value.trim()||ticker;
+  const currency=document.getElementById('addCurrency').value;
+  const account=document.getElementById('addAccount').value;
+  const qty=parseFloat(document.getElementById('addQty').value)||0;
+  const avg=parseFloat(document.getElementById('addAvg').value)||0;
+  if(!ticker){document.getElementById('addStatus').textContent='⚠ 티커를 입력해주세요';return;}
+  const statusEl=document.getElementById('addStatus');
+  statusEl.style.color='var(--accent3)';statusEl.textContent='🔍 조회 중...';
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:200,tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:'Return ONLY JSON: {"ticker":"X","price":123.4} for the current stock price. No other text.',
+        messages:[{role:'user',content:`Current price of ${ticker} (${name}) in ${currency}`}]})
+    });
+    const data=await res.json();
+    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const m=text.match(/\{[^}]+\}/);
+    if(m){const obj=JSON.parse(m[0]);if(obj.price){
+      modalAssets.push({account,ticker,name,qty,avg,price:obj.price,currency,isNew:true});
+      renderModalRows();
+      document.getElementById('addTicker').value='';document.getElementById('addName').value='';
+      document.getElementById('addQty').value='';document.getElementById('addAvg').value='';
+      document.getElementById('addForm').classList.remove('open');statusEl.textContent='';return;
+    }}
+    throw new Error('가격 조회 실패');
+  } catch(e){statusEl.style.color='var(--red)';statusEl.textContent='✗ '+e.message;}
+}
+
+function addStockManual(){
+  const ticker=document.getElementById('addTicker').value.trim();
+  const name=document.getElementById('addName').value.trim();
+  const currency=document.getElementById('addCurrency').value;
+  const account=document.getElementById('addAccount').value;
+  const qty=parseFloat(document.getElementById('addQty').value)||0;
+  const avg=parseFloat(document.getElementById('addAvg').value)||0;
+  if(!name){document.getElementById('addStatus').textContent='⚠ 종목명을 입력해주세요';return;}
+  modalAssets.push({account,ticker:ticker||null,name,qty,avg,price:avg,currency,isNew:true});
+  renderModalRows();
+  document.getElementById('addTicker').value='';document.getElementById('addName').value='';
+  document.getElementById('addQty').value='';document.getElementById('addAvg').value='';
+  document.getElementById('addForm').classList.remove('open');document.getElementById('addStatus').textContent='';
+}
+
+function saveSnapshot(){
+  const date=document.getElementById('newDate').value;
+  const rate=parseFloat(document.getElementById('newRate').value)||1380;
+  if(!date){alert('기준일을 입력해주세요.');return;}
+  const newSnap={date,usdRate:rate,assets:modalAssets.map(a=>({...a}))};
+  let snaps=loadSnapshots()||[SEED,SEED2];
+  const idx=snaps.findIndex(s=>s.date===date);
+  if(idx>=0) snaps[idx]=newSnap;
+  else snaps.push(newSnap);
+  snaps.sort((a,b)=>a.date.localeCompare(b.date));
+  saveSnapshots(snaps);
+  document.getElementById('usdRate').value=rate;
+  closeModal();
+  renderDashboard();
+}
+
+// ═══════════════════════════════════════════════
+// SEED REPORTS (미리 내장된 레포트)
+// ═══════════════════════════════════════════════
+const SEED_REPORTS = [
+  {
+    id: 20260612001,
+    date: "2026-06-12",
+    title: "2026년 6월 2주차 FATMAN TFT 주간 전략 보고",
+    author: "전략가 + 감시자 + 매크로 전문가",
+    tags: ["PLTR","코스피급등락","이란종전","SK하이닉스","서킷브레이커","DC리밸런싱"],
+    market: `■ 나스닥
+현재 26,500p 수준 (52주 범위 19,335~27,190). 상단 고점권 근접 상태. 6월 5일·8일 미국 기술주 급락 여파로 코스피에 서킷브레이커까지 발동됐으나, 11일 이란 종전 기대감에 전반적 회복. AI 슈퍼사이클 내러티브는 건재하나 고밸류에이션에 따른 조정 리스크 상시 잠재.
+
+■ 코스피 — 8,123p 마감 (6/11 기준)
+5월 장중 8,000p 돌파 후 6/5 -5.54%, 6/8 -8.29% 연이어 급락 → 서킷브레이커 발동. 이후 이란 종전 협상 기대감으로 6/11 +4.63% 폭발적 반등, 8,123p 재탈환. 외국인·기관 4.5조 원 순매수 동반. 노무라 "반도체 슈퍼사이클 이제 시작, 코스피 1만1,000 간다" 강세론 유지.
+
+■ SK하이닉스 (000660)
+6/11 종가 2,101,000원 (전일 2,048,000 → +2.6%). 52주 범위 233,750~2,407,000. 애널리스트 전원(36명) 매수·적극매수, 목표가 평균 2,586,700원. 7/29 Q2 실적 발표 예정. AI HBM 수요 폭증이 핵심 상승 동력.
+
+■ PLTR (Palantir Technologies)
+6/11 종가 $130.21 (52주 최고 $207.52 대비 -37%). Q1 매출 $1.633B (+85% YoY), EPS $0.33 (+19% 서프라이즈), 미국 상업 매출 +104% YoY. 구글 클라우드·커크랜드 앤 엘리스 신규 파트너십. 베어드 목표가 $200 유지. 8/10 Q2 실적 발표 예정.
+
+■ 매크로 / 금리
+이란 종전 협상 기대로 유가 하락, 인플레이션 완화 압력. Fed 연내 1~2회 금리 인하 시나리오 유지. 미국 금리 인상 전망 재부각 가능성이 6월 초 급락의 한 원인 — 금리 경로 불확실성 계속 모니터링 필요.`,
+    strategy: `【전략가 보고】
+
+전략 1. PLTR — 홀딩 유지 + 8월 실적 연동 부분 익절 시나리오
+현재 $130.21은 평단가 $122.46 대비 +6.3% 수익권. 고점 $207.52에서 -37% 조정된 상태이나 펀더멘털(매출 +85%, 영업이익률 60%)은 견조. 추가 매수보다 홀딩이 적절. 8/10 Q2 실적 컨센서스 EPS $0.37 달성 + $150 돌파 확인 시 보유분의 15~20% 차익 실현 실행. 목표가 $200을 감안하면 현 구간은 중장기 매력 구간이나 단기 변동성 대비 필요.
+
+전략 2. SK하이닉스 (000660) — 신규 편입 검토
+평단가 $1,066,086 대비 현재 2,101,000원으로 +97% 수익 중. 추가 매수는 자제하되, 코스피 급락 재발 시 (-10% 이상 조정) 분할 추가 매수 검토. 목표 단가 2,400,000원 (목표가 평균 기준).
+
+전략 3. 한화오션 — 현 포지션 유지 + Stop-loss 설정
+현가 115,100원 / 평단 121,103원 → -5% 손실권. 이란 종전 협상 진전으로 방산 모멘텀 약화 우려 있으나, LNG선·친환경 선박 수주는 구조적 성장 스토리 유효. 손익분기점 121,000원 회복 시 일부 청산 재검토. Stop-loss: 105,000원.
+
+전략 4. DC 계좌 분기 리밸런싱 — 9월 말 확정 실행
+TIGER 나스닥100 비중 과도 → 나스닥 고점권 부담 완화 목적으로 ACE 미국S&P500국채혼합50 ETF로 10~15% 이전. 리밸런싱 기준일: 9월 30일.
+
+전략 5. IRP 연금 세액공제 한도 소진
+2026년 연말 IRP 추가 납입 계획 (DC+IRP 합산 900만원 한도). 10~11월 집행 일정 확정 권고.`,
+    risk: `【감시자 경고 — Red Team 반론】
+
+⚠️ RISK 1: PLTR 집중도 — 총자산의 최대 30% 단일 종목 리스크
+미국주식 내 PLTR 비중 추정 72~75%. Q1 실적 호조에도 시간외 -5.66% 하락한 선례 그대로. 8/10 Q2 실적 시 밸류에이션 실망 발생하면 -15~25% 급락 가능. 총자산 기준 약 8천만원 이상 단기 증발 시나리오 → 분산 없이 홀딩만 결정하는 것은 위험. 최소 RKLB 또는 나스닥 ETF로 10% 이전 권고.
+
+⚠️ RISK 2: 코스피 급등락 — '빚투' 과열과 되돌림 위험
+6월 초 급락 후 5대 시중은행 마이너스통장 잔액이 5영업일 만에 1.4조 원 급증. 개인 빚투 과열은 역사적으로 단기 고점 신호. 코스피 8,100p 선에서 외국인 매도 전환 시 재급락 가능 — 국내주식 포지션 전체에 대한 분산 매도 준비선(7,500p) 재확인 필요.
+
+⚠️ RISK 3: 서킷브레이커 반복 발동 — 연금계좌 패닉 손절 경계
+6/8 서킷브레이커 발동 시 DC/IRP 내 나스닥100 ETF 단기 평가손 확대. 연금은 장기 운용이 원칙이나 공포 기반 환매 실수 가능성 상존. 사령관에게 사전 기준선 공유: 나스닥 -15% 미만 조정까지는 연금계좌 절대 환매 금지.
+
+⚠️ RISK 4: 환율 이중 리스크
+USD/KRW 현 1,380원. 코스피 급등(원화 강세)과 나스닥 반등이 동시에 오면 미국주식 원화 환산 이익이 부분 상쇄됨. 반대로 중동 불안 재폭발 시 원화 약세(환차익) + 글로벌 주가 동반 하락 콤보. 나스닥100 H(환헤지) ETF 비중 현황 재점검 권고.`,
+    decision: `【사령관 최종 결정 — 2026년 6월 12일】
+
+✅ PLTR: 전량 홀딩 유지. 추가 매수 없음. 8월 10일 Q2 실적 발표 후 EPS $0.37 달성 + 주가 $150 돌파 시 보유분의 15~20% 차익 실현 집행.
+
+✅ SK하이닉스: 현 포지션 유지. 코스피 조정(-10% 이상) 재발 시 분할 추가 매수 검토. 단, 무리한 추격 매수 금지.
+
+✅ 한화오션: 홀딩. Stop-loss 105,000원 설정 완료. 121,000원 회복 시 절반 청산 후 포지션 재검토.
+
+✅ DC 계좌 리밸런싱: 2026년 9월 30일 기준 실행 확정. TIGER 나스닥100 → ACE S&P500국채혼합 ETF 10~15% 이전.
+
+✅ IRP 세액공제: 10~11월 중 추가 납입 실행. 담당: 현금/유동성 조사관이 10월 1일 기준 잔여 한도 재확인 후 보고.
+
+📌 다음 주 핵심 모니터링
+- PLTR: $135 저항선 돌파 여부
+- 코스피: 8,000p 지지 여부 + 외국인 순매수 지속성
+- SK하이닉스: 2,200,000원 돌파 시 추세 전환 신호
+- 이란 종전 협상: 타결 여부에 따른 한화오션·HD현대일렉 방향성
+- 환율: 1,350원 이탈 시 미국주식 비중 재검토 트리거`
+  }
+];
+
+function initSeedReports() {
+  const existing = loadReports();
+  const existingIds = existing.map(r => r.id);
+  const toAdd = SEED_REPORTS.filter(r => !existingIds.includes(r.id));
+  if (toAdd.length > 0) {
+    const merged = [...existing, ...toAdd].sort((a,b) => a.date.localeCompare(b.date));
+    saveReports(merged);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// REPORT IMPORT/EXPORT
+// ═══════════════════════════════════════════════
+function exportReports() {
+  const reports = loadReports();
+  const blob = new Blob([JSON.stringify(reports, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `fatman_reports_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importReports() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        if (!Array.isArray(data)) throw new Error('올바른 형식이 아닙니다');
+        const existing = loadReports();
+        const existingIds = existing.map(r => r.id);
+        const toAdd = data.filter(r => !existingIds.includes(r.id));
+        const merged = [...existing, ...toAdd].sort((a,b) => a.date.localeCompare(b.date));
+        saveReports(merged);
+        renderReportList();
+        alert(`✅ ${toAdd.length}개 레포트 가져오기 완료 (중복 ${data.length - toAdd.length}개 제외)`);
+      } catch(err) { alert('❌ 파일 오류: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════
+// DRIVE SETUP TOGGLE + INIT
+// ═══════════════════════════════════════════════
+function toggleDriveSetup() {
+  const input = document.getElementById('driveClientId');
+  const btn   = document.getElementById('driveConnectBtn');
+  if (!_driveReady && input.style.display === 'none') {
+    // Client ID 입력 모드 전환
+    input.style.display = 'block';
+    const saved = localStorage.getItem('fatman_drive_client_id');
+    if (saved) input.value = saved;
+    btn.textContent = '→ 로그인';
+    btn.onclick = driveConnect;
+    showDriveStatus('idle', '⚙️ Client ID 입력 후 로그인 버튼 클릭');
+  } else if (!_driveReady) {
+    driveConnect();
+  } else {
+    // 이미 연결됨 — 수동 동기화
+    syncFromDrive();
+  }
+}
+
+// ── INIT ──────────────────────────────────────
+initSeedReports();
+renderDashboard();
+checkOAuthRedirect();   // OAuth 리다이렉트 토큰 수신
+fetchLiveExRate();
+setInterval(fetchLiveExRate, 30*60*1000);
+
+// Drive 저장된 Client ID 복원 및 상태 표시
+(function restoreDriveClientId() {
+  const saved = localStorage.getItem('fatman_drive_client_id');
+  const input = document.getElementById('driveClientId');
+  if (saved && input) input.value = saved;
+  if (!_driveReady) showDriveStatus('idle', '☁ Drive 미연결 (선택)');
+})();
+</script>
+</body>
+</html>
